@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Bolão Copa do Mundo 2026</title>
+
+<style>
+
+/* ===== SEU CSS INTACTO ===== */
+*{
+  margin:0;
+  padding:0;
+  box-sizing:border-box;
+  font-family:Arial,sans-serif;
+}
+
+body{
+  background:#081120;
+  color:white;
+  padding:25px;
+}
+
+h1{ color:#00d9ff; margin-bottom:20px; }
+h2{ margin:30px 0 15px; color:#00d9ff; }
+
+button{
+  border:none;
+  padding:12px 18px;
+  border-radius:10px;
+  cursor:pointer;
+  font-weight:bold;
+}
+
+.btn{ background:#00d9ff; color:black; }
+.btn-danger{ background:red; color:white; }
+
+.top{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:10px;
+}
+
+.participants{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+}
+
+.participant{
+  background:#121d33;
+  padding:12px;
+  border-radius:12px;
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+
+.matches{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(340px,1fr));
+  gap:20px;
+}
+
+.card{
+  background:#121d33;
+  border-radius:16px;
+  padding:18px;
+}
+
+.match{
+  background:#1c2a49;
+  border-radius:12px;
+  padding:15px;
+  margin-bottom:15px;
+}
+
+.teams{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:10px;
+  font-weight:bold;
+}
+
+.score{
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  gap:10px;
+}
+
+input[type=number]{
+  width:60px;
+  padding:10px;
+  border:none;
+  border-radius:10px;
+  text-align:center;
+  background:#081120;
+  color:white;
+  font-size:16px;
+}
+
+select{
+  padding:12px;
+  border:none;
+  border-radius:10px;
+  background:#121d33;
+  color:white;
+}
+
+table{
+  width:100%;
+  border-collapse:collapse;
+  margin-top:20px;
+}
+
+th{
+  background:#00d9ff;
+  color:black;
+  padding:12px;
+}
+
+td{
+  background:#121d33;
+  padding:12px;
+  border-bottom:1px solid #23355d;
+  text-align:center;
+}
+
+.info{
+  background:#121d33;
+  padding:15px;
+  border-radius:12px;
+  margin-top:20px;
+  line-height:1.8;
+}
+
+.actions{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  margin:20px 0;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="top">
+  <h1>🏆 Silva's & Salatis 🏆 </h1>
+  <h2>🏆 Bolão Copa do Mundo 2026</h2>
+
+  <button class="btn" onclick="addParticipant()">
+    + Participante
+  </button>
+</div>
+
+<h2>👥 Participantes</h2>
+<div class="participants" id="participants"></div>
+
+<h2>✍️ Fazer Palpites</h2>
+<select id="participantSelect" onchange="loadParticipantGuesses()"></select>
+
+<div class="info">
+<strong>📌 Regras:</strong><br><br>
+✅ Acertou vencedor = <strong>2 pontos</strong><br>
+✅ Acertou placar exato = <strong>5 pontos</strong>
+</div>
+
+<h2>⚽ Jogos</h2>
+<div class="matches" id="matches"></div>
+
+<div class="actions">
+  <button class="btn" onclick="saveGuesses()">💾 Salvar Palpites</button>
+</div>
+
+<h2>📋 Resultados Oficiais</h2>
+
+<button class="btn" onclick="toggleResults()">
+  ⚽ Preencher Resultados Oficiais
+</button>
+
+<div id="resultsArea" style="display:none;margin-top:20px;"></div>
+
+<h2>🏅 Ranking</h2>
+
+<table>
+<thead>
+<tr>
+  <th>#</th>
+  <th>Participante</th>
+  <th>Pontos</th>
+</tr>
+</thead>
+<tbody id="ranking"></tbody>
+</table>
+
+<!-- ================= FIREBASE ================= -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+
+<script>
+// ===== FIREBASE CONFIG =====
+const firebaseConfig = {
+  apiKey: "AIzaSyAWdrsX6SQpDhzPGxz8BfJI-T10IPPxCE",
+  authDomain: "bolaosalatisilva.firebaseapp.com",
+  databaseURL: "https://bolaosalatisilva-default-rtdb.firebaseio.com",
+  projectId: "bolaosalatisilva",
+  storageBucket: "bolaosalatisilva.firebasestorage.app",
+  messagingSenderId: "1022658429537",
+  appId: "1:1022658429537:web:a988d26360b197a3fea020"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+// ===== SEU JS ORIGINAL =====
+let participants = [];
+let guesses = {};
+let officialResults = {};
+
+// JOGOS (INTOCADO)
+const matches = [
+  {id:1, home:'Brasil', away:'Marrocos'},
+  {id:2, home:'Argentina', away:'Canadá'},
+  {id:3, home:'Portugal', away:'Colômbia'},
+  {id:4, home:'França', away:'Noruega'},
+  {id:5, home:'Alemanha', away:'Japão'},
+  {id:6, home:'Espanha', away:'Uruguai'},
+  {id:7, home:'México', away:'Estados Unidos'},
+  {id:8, home:'Inglaterra', away:'Dinamarca'}
+];
+
+// ===== FIREBASE SYNC =====
+db.ref('participants').on('value', snap=>{
+  participants = snap.val() || [];
+  renderParticipants();
+  renderSelect();
+  renderRanking();
+});
+
+db.ref('guesses').on('value', snap=>{
+  guesses = snap.val() || {};
+});
+
+db.ref('officialResults').on('value', snap=>{
+  officialResults = snap.val() || {};
+  renderRanking();
+});
+
+// ===== PARTICIPANTES =====
+function addParticipant(){
+  const name = prompt('Digite o nome do participante');
+  if(!name) return;
+
+  const updated = [...participants, {name, points:0}];
+  db.ref('participants').set(updated);
+
+  guesses[name] = {};
+  db.ref('guesses').set(guesses);
+}
+
+function removeParticipant(index){
+  const name = participants[index].name;
+  if(!confirm(`Remover ${name}?`)) return;
+
+  participants.splice(index,1);
+  db.ref('participants').set(participants);
+
+  delete guesses[name];
+  db.ref('guesses').set(guesses);
+}
+
+function renderParticipants(){
+  const div = document.getElementById('participants');
+  div.innerHTML = '';
+
+  participants.forEach((p,index)=>{
+    div.innerHTML += `
+      <div class="participant">
+        <span>${p.name}</span>
+        <button class="btn-danger" onclick="removeParticipant(${index})">X</button>
+      </div>
+    `;
+  });
+}
+
+// ===== SELECT =====
+function renderSelect(){
+  const select = document.getElementById('participantSelect');
+  select.innerHTML = '';
+
+  participants.forEach(p=>{
+    select.innerHTML += `<option value="${p.name}">${p.name}</option>`;
+  });
+
+  loadParticipantGuesses();
+}
+
+// ===== JOGOS =====
+function renderMatches(){
+  const div = document.getElementById('matches');
+  div.innerHTML = '';
+
+  matches.forEach(match=>{
+    div.innerHTML += `
+      <div class="card">
+        <div class="match">
+          <div class="teams">
+            <span>${match.home}</span>
+            <span>VS</span>
+            <span>${match.away}</span>
+          </div>
+
+          <div class="score">
+            <input type="number" id="home-${match.id}">
+            <span>x</span>
+            <input type="number" id="away-${match.id}">
+          </div>
+        </div>
+      </div>
+    `;
+  });
+}
+
+// ===== PALPITES =====
+function saveGuesses(){
+  const participant = document.getElementById('participantSelect').value;
+  if(!participant) return alert('Escolha um participante');
+
+  guesses[participant] = {};
+
+  matches.forEach(match=>{
+    guesses[participant][match.id] = {
+      home: document.getElementById(`home-${match.id}`).value,
+      away: document.getElementById(`away-${match.id}`).value
+    };
+  });
+
+  db.ref('guesses').set(guesses);
+  alert('Salvo!');
+}
+
+function loadParticipantGuesses(){
+  const participant = document.getElementById('participantSelect').value;
+
+  matches.forEach(match=>{
+    const g = guesses?.[participant]?.[match.id];
+
+    document.getElementById(`home-${match.id}`).value = g?.home || '';
+    document.getElementById(`away-${match.id}`).value = g?.away || '';
+  });
+}
+
+// ===== RESULTADOS =====
+function toggleResults(){
+  const area = document.getElementById('resultsArea');
+
+  if(area.style.display === 'none'){
+    area.style.display = 'grid';
+    renderResultsArea();
+  } else {
+    area.style.display = 'none';
+  }
+}
+
+function renderResultsArea(){
+  const area = document.getElementById('resultsArea');
+  area.className = 'matches';
+  area.innerHTML = '';
+
+  matches.forEach(match=>{
+    const saved = officialResults[match.id] || {};
+
+    area.innerHTML += `
+      <div class="card">
+        <div class="match">
+          <div class="teams">
+            <span>${match.home}</span>
+            <span>VS</span>
+            <span>${match.away}</span>
+          </div>
+
+          <div class="score">
+            <input type="number" id="official-home-${match.id}" value="${saved.home||''}">
+            <span>x</span>
+            <input type="number" id="official-away-${match.id}" value="${saved.away||''}">
+          </div>
+        </div>
+      </div>
+    `;
+  });
+
+  area.innerHTML += `
+    <button class="btn" onclick="saveOfficialResults()">Salvar Resultados</button>
+  `;
+}
+
+function saveOfficialResults(){
+  matches.forEach(match=>{
+    officialResults[match.id] = {
+      home: document.getElementById(`official-home-${match.id}`).value,
+      away: document.getElementById(`official-away-${match.id}`).value
+    };
+  });
+
+  db.ref('officialResults').set(officialResults);
+  calculatePoints();
+  alert('Salvo!');
+}
+
+// ===== PONTOS =====
+function calculatePoints(){
+  participants.forEach(player=>{
+    let total = 0;
+    const g = guesses[player.name];
+
+    if(!g) return;
+
+    matches.forEach(match=>{
+      const guess = g[match.id];
+      const result = officialResults[match.id];
+      if(!guess || !result) return;
+
+      const gh = parseInt(guess.home);
+      const ga = parseInt(guess.away);
+      const rh = parseInt(result.home);
+      const ra = parseInt(result.away);
+
+      if(gh===rh && ga===ra) total += 5;
+      else {
+        const gw = gh>ga?'home':ga>gh?'away':'draw';
+        const rw = rh>ra?'home':ra>rh?'away':'draw';
+        if(gw===rw) total += 2;
+      }
+    });
+
+    player.points = total;
+  });
+
+  db.ref('participants').set(participants);
+  renderRanking();
+}
+
+// ===== RANKING =====
+function renderRanking(){
+  const tbody = document.getElementById('ranking');
+  tbody.innerHTML = '';
+
+  const sorted = [...participants].sort((a,b)=>b.points-a.points);
+
+  sorted.forEach((p,i)=>{
+    tbody.innerHTML += `
+      <tr>
+        <td>${i+1}</td>
+        <td>${p.name}</td>
+        <td>${p.points}</td>
+      </tr>
+    `;
+  });
+}
+
+// INIT
+renderMatches();
+</script>
+
+</body>
+</html>
