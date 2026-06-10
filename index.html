@@ -1,1 +1,344 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+<title>Bolão Copa do Mundo 2026</title>
+
+<style>
+*{
+  margin:0;
+  padding:0;
+  box-sizing:border-box;
+  font-family:Arial,sans-serif;
+}
+
+body{
+  background:#081120;
+  color:white;
+  padding:25px;
+}
+
+h1{color:#00d9ff;margin-bottom:20px;}
+h2{margin:30px 0 15px;color:#00d9ff;}
+
+button{
+  border:none;
+  padding:12px 18px;
+  border-radius:10px;
+  cursor:pointer;
+  font-weight:bold;
+}
+
+.btn{background:#00d9ff;color:black;}
+.btn-danger{background:red;color:white;}
+
+.top{
+  display:flex;
+  justify-content:space-between;
+  flex-wrap:wrap;
+  gap:10px;
+}
+
+.participants{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+}
+
+.participant{
+  background:#121d33;
+  padding:12px;
+  border-radius:12px;
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+
+.matches{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(340px,1fr));
+  gap:20px;
+}
+
+.card{
+  background:#121d33;
+  border-radius:16px;
+  padding:18px;
+}
+
+.match{
+  background:#1c2a49;
+  border-radius:12px;
+  padding:15px;
+}
+
+.teams{
+  display:flex;
+  justify-content:space-between;
+  font-weight:bold;
+  margin-bottom:10px;
+}
+
+.score{
+  display:flex;
+  justify-content:center;
+  gap:10px;
+}
+
+input[type=number]{
+  width:60px;
+  padding:10px;
+  border:none;
+  border-radius:10px;
+  text-align:center;
+  background:#081120;
+  color:white;
+}
+
+select{
+  padding:12px;
+  border:none;
+  border-radius:10px;
+  background:#121d33;
+  color:white;
+}
+
+table{
+  width:100%;
+  border-collapse:collapse;
+}
+
+th{
+  background:#00d9ff;
+  color:black;
+  padding:12px;
+}
+
+td{
+  background:#121d33;
+  padding:12px;
+  text-align:center;
+}
+</style>
+</head>
+
+<body>
+
+<div class="top">
+  <h1>🏆 Bolão 2026</h1>
+  <button class="btn" onclick="addParticipant()">+ Participante</button>
+</div>
+
+<h2>👥 Participantes</h2>
+<div id="participants" class="participants"></div>
+
+<h2>✍️ Palpites</h2>
+
+<select id="participantSelect" onchange="loadParticipantGuesses()"></select>
+
+<h2>⚽ Jogos</h2>
+<div id="matches" class="matches"></div>
+
+<button class="btn" onclick="saveGuesses()">💾 Salvar Palpites</button>
+
+<h2>🏅 Ranking</h2>
+<table>
+<tr><th>#</th><th>Nome</th><th>Pontos</th></tr>
+<tbody id="ranking"></tbody>
+</table>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyAWdrSxR6SQpDhzPGxz8BfJI-T10IPPxCE",
+  authDomain: "bolaosalatisilva.firebaseapp.com",
+  databaseURL: "https://bolaosalatisilva-default-rtdb.firebaseio.com",
+  projectId: "bolaosalatisilva",
+  storageBucket: "bolaosalatisilva.appspot.com",
+  messagingSenderId: "1022658429537",
+  appId: "1:1022658429537:web:a988d26360b197a3fea020"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+let participants = [];
+let guesses = {};
+let officialResults = {};
+
+const matches = [
+  {id:1, home:'Brasil', away:'Marrocos'},
+  {id:2, home:'Argentina', away:'Canadá'},
+  {id:3, home:'Portugal', away:'Colômbia'},
+  {id:4, home:'França', away:'Noruega'},
+  {id:5, home:'Alemanha', away:'Japão'},
+  {id:6, home:'Espanha', away:'Uruguai'},
+  {id:7, home:'México', away:'Estados Unidos'},
+  {id:8, home:'Inglaterra', away:'Dinamarca'}
+];
+
+// 🔥 LISTEN REALTIME
+firebase.database().ref("bolao").on("value", (snap) => {
+  const data = snap.val();
+  if (!data) return;
+
+  participants = data.participants || [];
+  guesses = data.guesses || {};
+  officialResults = data.officialResults || {};
+
+  renderAll();
+});
+
+function saveToFirebase(){
+  db.ref("bolao").set({
+    participants,
+    guesses,
+    officialResults
+  });
+}
+
+function addParticipant(){
+  const name = prompt("Nome do participante:");
+  if (!name) return;
+
+  participants.push({name, points:0});
+  guesses[name] = {};
+
+  saveToFirebase();
+}
+
+function removeParticipant(index){
+  participants.splice(index,1);
+  saveToFirebase();
+}
+
+function renderParticipants(){
+  const div = document.getElementById("participants");
+  div.innerHTML = "";
+
+  participants.forEach((p,i)=>{
+    div.innerHTML += `
+      <div class="participant">
+        ${p.name}
+        <button class="btn-danger" onclick="removeParticipant(${i})">X</button>
+      </div>
+    `;
+  });
+}
+
+function renderSelect(){
+  const sel = document.getElementById("participantSelect");
+  sel.innerHTML = "";
+
+  participants.forEach(p=>{
+    sel.innerHTML += `<option value="${p.name}">${p.name}</option>`;
+  });
+
+  loadParticipantGuesses();
+}
+
+function renderMatches(){
+  const div = document.getElementById("matches");
+  div.innerHTML = "";
+
+  matches.forEach(m=>{
+    div.innerHTML += `
+      <div class="card">
+        <div class="match">
+          <div class="teams">
+            <span>${m.home}</span> VS <span>${m.away}</span>
+          </div>
+
+          <div class="score">
+            <input type="number" id="h-${m.id}">
+            <span>x</span>
+            <input type="number" id="a-${m.id}">
+          </div>
+        </div>
+      </div>
+    `;
+  });
+}
+
+function saveGuesses(){
+  const p = document.getElementById("participantSelect").value;
+
+  guesses[p] = {};
+
+  matches.forEach(m=>{
+    guesses[p][m.id] = {
+      home: document.getElementById("h-"+m.id).value,
+      away: document.getElementById("a-"+m.id).value
+    };
+  });
+
+  saveToFirebase();
+}
+
+function loadParticipantGuesses(){
+  const p = document.getElementById("participantSelect").value;
+
+  matches.forEach(m=>{
+    const g = guesses[p]?.[m.id];
+
+    document.getElementById("h-"+m.id).value = g?.home || "";
+    document.getElementById("a-"+m.id).value = g?.away || "";
+  });
+}
+
+function calculate(){
+  participants.forEach(p=>{
+    let total = 0;
+    const g = guesses[p.name] || {};
+
+    matches.forEach(m=>{
+      const guess = g[m.id];
+      const result = officialResults[m.id];
+
+      if (!guess || !result) return;
+
+      const gh = parseInt(guess.home);
+      const ga = parseInt(guess.away);
+      const rh = parseInt(result.home);
+      const ra = parseInt(result.away);
+
+      if (gh === rh && ga === ra) total += 5;
+      else if ((gh>ga && rh>ra) || (gh<ga && rh<ra) || (gh===ga && rh===ra)) total += 2;
+    });
+
+    p.points = total;
+  });
+}
+
+function renderRanking(){
+  const tb = document.getElementById("ranking");
+  tb.innerHTML = "";
+
+  const sorted = [...participants].sort((a,b)=>b.points-a.points);
+
+  sorted.forEach((p,i)=>{
+    tb.innerHTML += `
+      <tr>
+        <td>${i+1}</td>
+        <td>${p.name}</td>
+        <td>${p.points}</td>
+      </tr>
+    `;
+  });
+}
+
+function renderAll(){
+  renderParticipants();
+  renderSelect();
+  renderMatches();
+  calculate();
+  renderRanking();
+}
+</script>
+
+</body>
+</html>
